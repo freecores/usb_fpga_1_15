@@ -885,7 +885,7 @@ BYTE flash_write_init(DWORD s) {
    ********************************************************************* */
 /*
    Writes the rest of the sector (n dummy bytes + CRC, the whole sector has to be written)
-   but do not write the finalization procedure. This is done by flash_write_finish 
+   but do not run the finalization procedure. This is done by flash_write_finish 
    or flash_write_next, i.e. these functions must be called after flash_write_finish_sector.
    
    Between flash_write_finish / flash_write_next and flash_write_finish_sector some code
@@ -932,7 +932,7 @@ void flash_write_finish () {
    ***** flash_write_next **********************************************
    ********************************************************************* */
 /*
-   Prepare the nexte sector for write transimssion, see flash_write_finish1.
+   Prepare the nexte sector for writing, see flash_write_finish_sector.
 */   
 void flash_write_next () {
     mmc_wait_busy();			

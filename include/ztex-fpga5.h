@@ -322,23 +322,6 @@ ADD_EP0_VENDOR_COMMAND((0x34,,			// init fpga configuration
     init_cpld_fpga_configuration();
 ,,));;
 
-/* *********************************************************************
-   ***** select_fpga ***************************************************
-   ********************************************************************* */
-void select_fpga ( BYTE fn ) 
-{
-    prev_select_num = select_num;
-    select_num = fn & 3;
-    select_mask = 0x10 << fn;
-    config_mask_h = select_mask;
-
-    IOE = 0x0f;
-    {
-	PRE_FPGA_SELECT
-    }
-    IOE = select_mask | 0x0f;
-}    
-
 
 /* *********************************************************************
    ***** EP0 vendor command 0x35 ***************************************
@@ -355,6 +338,24 @@ ADD_EP0_VENDOR_COMMAND((0x35,,		// finish fpga configuration
 ,,));;
 
 #endif  // HS_FPGA_CONF_EP
+
+
+/* *********************************************************************
+   ***** select_fpga ***************************************************
+   ********************************************************************* */
+void select_fpga ( BYTE fn ) 
+{
+    prev_select_num = select_num;
+    select_num = fn & 3;
+    select_mask = 0x10 << fn;
+    config_mask_h = select_mask;
+
+    IOE = 0x0f;
+    {
+	PRE_FPGA_SELECT
+    }
+    IOE = select_mask | 0x0f;
+}    
 
 
 /* *********************************************************************

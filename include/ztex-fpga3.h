@@ -40,7 +40,7 @@ static void reset_fpga_int (BYTE mode) {		// reset FPGA
     PORTACFG = 0;
     PORTCCFG = 0;
 
-    OEA = (OEA & 5 ) | bmBIT1 | bmBIT3 | bmBIT4 | bmBIT5 | bmBIT6 | bmBIT7;
+    OEA = bmBIT1 | bmBIT3 | bmBIT4 | bmBIT5 | bmBIT6 | bmBIT7;
     IOA = bmBIT7 | mode;
     wait(10);
 		    
@@ -235,7 +235,7 @@ __asm
 	cjne	r6,#0x00,010002$
 	pop 	_OED
 	ret
-010002$:			   	// approx 73 cycles per byte
+010002$:			   	// approx 69*4 cycles per byte
 	setb	_IOA3  // 2
 	setb	_IOC6  // 2
 	clr	_IOA3  // 2
@@ -283,7 +283,7 @@ __asm
 __endasm;    
 }
 
-#include[ztex-fpga-flash.h]
+#include[ztex-fpga-flash1.h]
 
 #else
 #warning[Flash interface is not enabled but required for FPGA configuration using a bitstream from Flash meomory]

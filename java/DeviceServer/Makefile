@@ -2,22 +2,15 @@
 # configuration section #
 #########################
 
-ZTEXPREFIX=../../..
+ZTEXPREFIX=../..
 
-JARTARGET=
-CLASSTARGETS=
+JARTARGET=DeviceServer.jar
+CLASSTARGETS=DeviceServer.class
 CLASSEXTRADEPS=
-
-IHXTARGETS=default.ihx
-IHXEXTRADEPS=
-EXTRAJARFILES=
-EXTRADISTCLEANFILES=
-
-default: all
+#CLASSEXTRADEPS:=$(wildcard $(ZTEXPREFIX)/java/ztex/*.java)
 
 ################################
 # DO NOT CHANAGE THE FOLLOWING #
 ################################
 
 include $(ZTEXPREFIX)/Makefile.mk
-

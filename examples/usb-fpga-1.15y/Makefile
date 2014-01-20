@@ -1,4 +1,4 @@
-DIRS=intraffic ucecho default
+DIRS=intraffic ucecho
 
 .PHONY: default all clean distclean avr avrclean avrdistclean
 

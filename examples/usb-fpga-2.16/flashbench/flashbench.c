@@ -1,5 +1,5 @@
 /*!
-   default -- Default Firmware for ZTEX USB-FPGA Modules 1.15y
+   flashbench -- Flash memory benchmark for ZTEX USB-FPGA Module 1.15
    Copyright (C) 2009-2011 ZTEX GmbH.
    http://www.ztex.de
 
@@ -19,25 +19,23 @@
 #include[ztex-conf.h]	// Loads the configuration macros, see ztex-conf.h for the available macros
 #include[ztex-utils.h]	// include basic functions and variables
 
-// Endpoint 2 is used to high speed FPGA configuration
-EP_CONFIG(2,0,BULK,OUT,512,4);	 
+// select ZTEX USB FPGA Module 2.16 as target
+IDENTITY_UFM_2_16(10.16.0.0,0);	 
 
-// select ZTEX USB FPGA Module 1.15y as target (required for FPGA configuration)
-IDENTITY_UFM_1_15Y(10.15.0.0,0);	 
+// this product string is also used for identification by the host software
+#define[PRODUCT_STRING]["flashbench for UFM 2.16"]
+//USE_4KSECTORS;
 
-// enables high speed FPGA configuration, use EP 2
-ENABLE_HS_FPGA_CONF(2);
+// enable Flash support
+ENABLE_FLASH;
 
-// this product string can also used for identification by the host software
-#define[PRODUCT_STRING]["USB-FPGA Module 1.15y (default)"]
-
+// include the main part of the firmware kit, define the descriptors, ...
 #include[ztex.h]
 
 void main(void)	
 {
-    init_USB();						// init everything
+    init_USB();		// init everything ...
     
-    while (1) {	}					//  twiddle thumbs
+    while (1) {	}	// ... and twiddle thumbs
 }
-
 

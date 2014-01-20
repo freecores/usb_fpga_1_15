@@ -50,14 +50,17 @@ __xdata __at ZTEX_DESCRIPTOR_OFFS+2 BYTE ZTEXID[4];
    10.*.*.*		// used for ZTEX products
    10.11.*.*		// ZTEX USB-FPGA-Module 1.2
    10.12.*.*		// ZTEX USB-FPGA-Module 1.11
+   10.12.2.1..4		// NIT (http://www.niteurope.com/)
    10.13.*.*		// ZTEX USB-FPGA-Module 1.15 (not 1.15y)
    10.14.*.*		// ZTEX USB-FPGA-Module 1.15x
    10.15.*.*		// ZTEX USB-FPGA-Module 1.15y
+   10.16.*.*		// ZTEX USB-FPGA-Module 2.16
+   10.17.*.*		// ZTEX USB-FPGA-Module 2.13
    10.20.*.*		// ZTEX USB-Module 1.0
    10.30.*.*		// ZTEX USB-XMEGA-Module 1.0
    10.0.1.1		// ZTEX bitminer firmware
    
-   Please contact me (http://www.ztex.de --> Impressum/Kontakt) if you want to register/reserve a Product ID (range).
+   Please contact us (http://www.ztex.de/contact.e.html) if you want to register/reserve a Product ID (range).
 */
 __xdata __at ZTEX_DESCRIPTOR_OFFS+6 BYTE PRODUCT_ID[4];  
 
@@ -77,6 +80,7 @@ __xdata __at ZTEX_DESCRIPTOR_OFFS+11 BYTE INTERFACE_VERSION;
 	0.5  : High speed FPGA configuration support
 	0.6  : MAC EEPROM support
 	0.7  : Multi-FPGA support
+	1.0  : Temperature sensor support 
 */
 __xdata __at ZTEX_DESCRIPTOR_OFFS+12 BYTE INTERFACE_CAPABILITIES[6];
 

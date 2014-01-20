@@ -68,8 +68,8 @@ static void resetToggleData () {
 static void sendStringDescriptor (BYTE loAddr, BYTE hiAddr, BYTE size)
 {
     BYTE i;
-    if ( size > 31)
-	size = 31;
+    if ( size > 31) size = 31;
+    if (SETUPDAT[7] == 0 && SETUPDAT[6]<size ) size = SETUPDAT[6];
     AUTOPTRSETUP = 7;
     AUTOPTRL1 = loAddr;
     AUTOPTRH1 = hiAddr;

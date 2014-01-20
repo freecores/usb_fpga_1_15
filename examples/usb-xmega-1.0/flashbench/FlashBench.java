@@ -87,7 +87,7 @@ class FlashBench extends Ztex1v1 {
 	}
 	System.out.println("testRW: " + errors +" errors detected");
 
-	return num*512.0/(new Date().getTime() - t0);
+	return num*flashSectorSize()*1.0/(new Date().getTime() - t0);
     }
 
 // ******* testW **************************************************************
@@ -105,7 +105,7 @@ class FlashBench extends Ztex1v1 {
 	    }
 	    flashWriteSector(i,j,buf);
 	}
-	return num*512.0/(new Date().getTime() - t0);
+	return num*flashSectorSize()*1.0/(new Date().getTime() - t0);
     }
 
 // ******* testR **************************************************************
@@ -132,7 +132,7 @@ class FlashBench extends Ztex1v1 {
 		errors+=1;
 	}
 	System.out.println("testR: " + errors +" errors detected");
-	return num*512.0/(new Date().getTime() - t0);
+	return num*flashSectorSize()*1.0/(new Date().getTime() - t0);
     }
 
 // ******* main ****************************************************************

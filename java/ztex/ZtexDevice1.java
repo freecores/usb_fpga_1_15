@@ -72,10 +72,16 @@ import ch.ntb.usb.*;
   *          <tr><td>0.0.0.0</td> <td>default Product ID (no product specified)</td></tr>
   *           <tr><td>1.*.*.*</td> <td>may be used for experimental purposes</td></tr>
   *           <tr><td>10.*.*.*</td> <td>used for ZTEX products</td></tr>
-  *           <tr><td>10.11.*.*</td> <td><a href="http://www.ztex.de/usb-fpga-1/usb-fpga-1.2.e.html">ZTEX USB-FPGA-Module 1.2</a></td></tr>
-  *           <tr><td>10.20.*.*</td> <td><a href="http://www.ztex.de/usb-1/usb-1.0.e.html">ZTEX USB-Module 1.0</a></td></tr>
+  *           <tr><td>10.11.*.*</td> <td>ZTEX USB-FPGA-Module 1.2</td></tr>
+  *           <tr><td>10.12.*.*</td> <td>ZTEX USB-FPGA-Module 1.11</td></tr>
+  *           <tr><td>10.13.*.*</td> <td>ZTEX USB-FPGA-Module 1.15 (not 1.15y)</td></tr>
+  *           <tr><td>10.14.*.*</td> <td>ZTEX USB-FPGA-Module 1.15x</td></tr>
+  *           <tr><td>10.15.*.*</td> <td>ZTEX USB-FPGA-Module 1.15y</td></tr>
+  *           <tr><td>10.20.*.*</td> <td>ZTEX USB-Module 1.0</td></tr>
+  *           <tr><td>10.30.*.*</td> <td>ZTEX USB-XMEGA-Module 1.0</td></tr>
+  *           <tr><td>10.0.1.1</td> <td>ZTEX BTCMiner firmware</td></tr>
   *         </table></td></tr></table>
-  *         Please contact me (<a href="http://www.ztex.de/contact.e.html">http://www.ztex.de/contact.e.html</a>) if you want to register or reserve a Product ID (range).
+  *         Please contact us (<a href="http://www.ztex.de/contact.e.html">http://www.ztex.de/contact.e.html</a>) if you want to register or reserve a Product ID (range).
   *       </td>
   *   </tr>
   *   <tr>

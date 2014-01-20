@@ -50,7 +50,7 @@
 	    Returns:
 	        Offs	Description
 		0	1:enabled, 0:disabled
-		1-2	Sector size
+		1-2	Sector size <sector size> = MSB==0 : flash_sector_size and 0x7fff ? 1<<(flash_sector_size and 0x7fff)
 		3-6	Number of sectors
 		7	Error code
 	VR 0x41 : read from Flash
@@ -109,6 +109,13 @@
 	    	    0 : select single FPGA
 	    	    1 : select all FPGA's for configuration
 	        value: FPGA to select - 1
+
+    1.0  : Temperature sensor
+	VR 0x58 : Return temperature data
+	    Returns:
+	        Offs	Description
+	        0	Protocol number
+	        1..n    Data
 
 */
 package ztex;
@@ -501,6 +508,37 @@ import ch.ntb.usb.*;
   *       </table>
   *	</td>
   *   </tr>
+  *   <tr>
+  *     <td bgcolor="#ffffff" valign="top">1.0</td>
+  *     <td bgcolor="#ffffff" valign="top" colspan=2>
+  *	  Temperature sensor support<p>
+  *       <table bgcolor="#404040" cellspacing=1 cellpadding=6>
+  *         <tr>
+  *           <td bgcolor="#d0d0d0" valign="bottom"><b>Vendor request (VR)<br> or command (VC)</b></td>
+  *           <td bgcolor="#d0d0d0" valign="bottom"><b>Description</b></td>
+  *         </tr>
+  *         <tr>
+  *           <td bgcolor="#ffffff" valign="top">VR 0x58</td>
+  *           <td bgcolor="#ffffff" valign="top">Return temperature data:
+  *             <table bgcolor="#404040" cellspacing=1 cellpadding=4>
+  *               <tr>
+  *                 <td bgcolor="#d0d0d0" valign="bottom"><b>Bytes</b></td>
+  *                 <td bgcolor="#d0d0d0" valign="bottom"><b>Description</b></td>
+  *               </tr>
+  *               <tr>
+  *                 <td bgcolor="#ffffff" valign="top">0</td>
+  *                 <td bgcolor="#ffffff" valign="top">Protocol</td>
+  *               </tr>
+  *               <tr>
+  *                 <td bgcolor="#ffffff" valign="top">1..n</td>
+  *                 <td bgcolor="#ffffff" valign="top">Data</td>
+  *               </tr>
+  *             </table>
+  *           </td>
+  *         </tr>
+  *       </table>
+  *	</td>
+  *   </tr>
   * </table>
   * @see ZtexDevice1
   * @see Ztex1
@@ -524,6 +562,8 @@ public class Ztex1v1 extends Ztex1 {
     public static final int CAPABILITY_MAC_EEPROM = 6;
     /** * Capability index for multi FPGA support */
     public static final int CAPABILITY_MULTI_FPGA = 7;
+    /** * Capability index for Temperature sensor support */
+    public static final int CAPABILITY_TEMP_SENSOR = 9;
 
     /** * The names of the capabilities */
     public static final String capabilityStrings[] = {
@@ -534,7 +574,8 @@ public class Ztex1v1 extends Ztex1 {
 	"XMEGA support", 
 	"High speed FPGA configuration",
 	"MAC EEPROM read/write",
-	"Multi FPGA Support" 
+	"Multi FPGA support",
+	"Temperature Sensor support" ,
     };
     
     /** * Enables extra FPGA configuration checks. Certain Bistream settings may cause false warnings.  */
@@ -605,6 +646,20 @@ public class Ztex1v1 extends Ztex1 {
     private int selectedFpga = -1;
     private boolean parallelConfigSupport = false;
     
+    private long lastTempSensorReadTime = 0;
+    private byte[] tempSensorBuf = new byte[9];
+    /** * smallest temperature sensor update interval in ms */
+    public int tempSensorUpdateInterval = 100;
+
+/** 
+  * The configuration data structure 
+  * is initialized if this kind of data is present in MAC EEPROM.
+  * In this case MAC EEPROM writes to addresses 0 to 79 are disabled, see {@link #macEepromWrite(int,byte[],int)}.
+  * In order to override this behavior set this variable to null.
+  * If no configuration data is present {@link #config} is null.
+  */ 
+    public ConfigData config;
+    
 // ******* Ztex1v1 *************************************************************
 /** 
   * Constructs an instance from a given device.
@@ -613,6 +668,23 @@ public class Ztex1v1 extends Ztex1 {
   */
     public Ztex1v1 ( ZtexDevice1 pDev ) throws UsbException {
 	super ( pDev );
+    }
+
+// ******* init ****************************************************************
+/** 
+  * Initializates the class.
+  * @throws UsbException if an communication error occurred.
+  */
+    protected void init () throws UsbException {
+	super.init();
+	config = new ConfigData ();
+	try {
+	    if ( ! config.connect( this ) ) 
+		config = null;
+	}
+	catch ( Exception e ) {
+	    config = null;
+	}
     }
 
 // ******* valid ***************************************************************
@@ -688,6 +760,16 @@ public class Ztex1v1 extends Ztex1 {
   */
     public void checkCapability ( int i ) throws InvalidFirmwareException, CapabilityException {
 	checkCapability(i/8, i%8);
+    }
+    
+// ******* InterfaceCapabilities ***********************************************
+/** 
+  * Returns interface capability bit.
+  * @return interface capability bit.
+  * @param i capability index (0..47)
+  */
+    public boolean InterfaceCapabilities ( int i ) {
+	return dev().interfaceCapabilities(i/8, i%8);
     }
 
 // ******* checkCompatible *****************************************************
@@ -818,7 +900,7 @@ public class Ztex1v1 extends Ztex1 {
 //  returns configuration time in ms
 /**
   * Upload a Bitstream to the FPGA using low speed mode.
-  * @param fwFileName The file name of the Bitstream. The file can be a regular file or a system resource (e.g. a file from the current jar archive).
+  * @param inputStream for reading the Bitstream.
   * @param force If set to true existing configurations will be overwritten. (By default an {@link AlreadyConfiguredException} is thrown).
   * @param bs 0: disable bit swapping, 1: enable bit swapping, all other values: automatic detection of bit order.
   * @throws BitstreamReadException if an error occurred while attempting to read the Bitstream.
@@ -828,7 +910,7 @@ public class Ztex1v1 extends Ztex1 {
   * @throws UsbException if a communication error occurs.
   * @throws CapabilityException if FPGA configuration is not supported by the firmware.
   */
-    public long configureFpgaLS ( String fwFileName, boolean force, int bs ) throws BitstreamReadException, UsbException, BitstreamUploadException, AlreadyConfiguredException, InvalidFirmwareException, CapabilityException {
+    public long configureFpgaLS ( InputStream inputStream, boolean force, int bs ) throws BitstreamReadException, UsbException, BitstreamUploadException, AlreadyConfiguredException, InvalidFirmwareException, CapabilityException {
 	final int transactionBytes = certainWorkarounds ? 256 : 2048;
 	long t0 = 0;
 
@@ -841,7 +923,6 @@ public class Ztex1v1 extends Ztex1 {
         byte[][] buffer = new byte[16*1024*1024/transactionBytes][];
 	int size = 0;
 	try {
-	    InputStream inputStream = JInputStream.getInputStream( fwFileName );
 	    int j = transactionBytes;
 	    for ( int i=0; i<buffer.length && j==transactionBytes; i++ ) {
 		buffer[i] = new byte[transactionBytes]; 
@@ -864,7 +945,6 @@ public class Ztex1v1 extends Ztex1 {
 		inputStream.close();
 	    }
 	    catch ( Exception e ) {
-		System.err.println( "Warning: Error closing file " + fwFileName + ": " + e.getLocalizedMessage() );
 	    }
 	}
 	catch (IOException e) {
@@ -935,6 +1015,27 @@ public class Ztex1v1 extends Ztex1 {
 	return t0;
     } 
 
+
+/**
+  * Upload a Bitstream to the FPGA using low speed mode.
+  * @param fwFileName The file name of the Bitstream. The file can be a regular file or a system resource (e.g. a file from the current jar archive).
+  * @param force If set to true existing configurations will be overwritten. (By default an {@link AlreadyConfiguredException} is thrown).
+  * @param bs 0: disable bit swapping, 1: enable bit swapping, all other values: automatic detection of bit order.
+  * @throws BitstreamReadException if an error occurred while attempting to read the Bitstream.
+  * @throws BitstreamUploadException if an error occurred while attempting to upload the Bitstream.
+  * @throws AlreadyConfiguredException if the FPGA is already configured.
+  * @throws InvalidFirmwareException if interface 1 is not supported.
+  * @throws UsbException if a communication error occurs.
+  * @throws CapabilityException if FPGA configuration is not supported by the firmware.
+  */
+    public long configureFpgaLS ( String fwFileName, boolean force, int bs ) throws BitstreamReadException, UsbException, BitstreamUploadException, AlreadyConfiguredException, InvalidFirmwareException, CapabilityException {
+	try {
+	    return configureFpgaLS( JInputStream.getInputStream( fwFileName ), force, bs );
+	}
+	catch (IOException e) {
+	    throw new BitstreamReadException(e.getLocalizedMessage());
+	}
+    }
 
 // ******* eepromState *********************************************************
 // returns true if EEPROM is ready
@@ -1270,6 +1371,8 @@ public class Ztex1v1 extends Ztex1 {
 	}
 	flashEnabled = buf[0] & 255;
 	flashSectorSize = flashEnabled == 1 ? ((buf[2] & 255) << 8) | (buf[1] & 255) : 0;
+	if ( (flashSectorSize & 0x8000) != 0 ) 
+	    flashSectorSize = 1 << (flashSectorSize & 0x7fff);
 	flashSectors = flashEnabled == 1 ? ((buf[6] & 255) << 24) | ((buf[5] & 255) << 16) | ((buf[4] & 255) << 8) | (buf[3] & 255) : 0;
 	return flashEnabled == 1;
     }
@@ -1291,33 +1394,8 @@ public class Ztex1v1 extends Ztex1 {
 	return flashEC;
     }
 
+
 // ******* flashReadSector ****************************************************
-// read exactly one sector
-/**
-  * Reads one sector from the Flash.
-  * @param sector The sector number to be read.
-  * @param buf A buffer for the storage of the data.
-  * @throws InvalidFirmwareException if interface 1 is not supported.
-  * @throws UsbException if a communication error occurs.
-  * @throws CapabilityException if Flash memory access is not possible.
-  * @throws IndexOutOfBoundsException If the buffer is smaller than the Flash sector size.
-  */
-    public void flashReadSector ( int sector, byte[] buf ) throws UsbException, InvalidFirmwareException, CapabilityException, IndexOutOfBoundsException  {
-	if ( buf.length < flashSectorSize() ) 
-	    throw new IndexOutOfBoundsException( "Buffer smaller than the Flash sector size: " + buf.length + " < " + flashSectorSize());
-
-	checkCapability(CAPABILITY_FLASH);
-	if ( ! flashEnabled() )
-	    throw new CapabilityException(this, "No Flash memory installed or");
-
-	try {
-	    vendorRequest2( 0x41, "Flash Read", sector, sector >> 16, buf, flashSectorSize );
-        }
-        catch ( UsbException e ) {
-	    throw new UsbException( dev().dev(), "Flash Read: " + flashStrError() ); 
-	}
-    }
-
 // read a integer number of sectors
 /**
   * Reads a integer number of sectors from the Flash.
@@ -1330,6 +1408,8 @@ public class Ztex1v1 extends Ztex1 {
   * @throws IndexOutOfBoundsException If the buffer is to small.
   */
     public void flashReadSector ( int sector, int num, byte[] buf ) throws UsbException, InvalidFirmwareException, CapabilityException, IndexOutOfBoundsException  {
+	if ( num<1 ) return;
+
 	if ( buf.length < flashSectorSize() ) 
 	    throw new IndexOutOfBoundsException( "Buffer is to small: " + buf.length + " < " + (num*flashSectorSize()) );
 
@@ -1338,39 +1418,44 @@ public class Ztex1v1 extends Ztex1 {
 	    throw new CapabilityException(this, "No Flash memory installed or");
 
 	try {
-	    vendorRequest2( 0x41, "Flash Read", sector, sector >> 16, buf, flashSectorSize*num );
+	    if ( flashSectorSize()>2048 ) {
+		byte[] buf2 = new byte[2048];
+		int iz = (flashSectorSize-1) >> 11;
+		for (int sn=0; sn<num; sn++ ) {
+		    for (int i=0; i<iz; i++) {
+//			System.out.println("r: "+i);
+			vendorRequest2( 0x41, "Flash Read", sector, i==0 ? 0 : 256, buf2, 2048 );
+			System.arraycopy(buf2,0, buf, sn*flashSectorSize + i*2048, 2048);
+		    }
+		    int len = flashSectorSize-iz*2048;
+		    vendorRequest2( 0x41, "Flash Read", sector, 512, buf2,  len);
+		    System.arraycopy(buf2,0, buf, sn*flashSectorSize + iz*2048, len);
+		}
+	    }
+	    else {
+		if ( flashSectorSize*num>2048 ) System.err.println("Warning: flashReadSector: Transaction size " + flashSectorSize*num + " may be too large");
+		vendorRequest2( 0x41, "Flash Read", sector, sector >> 16, buf, flashSectorSize*num );
+	    }
         }
         catch ( UsbException e ) {
 	    throw new UsbException( dev().dev(), "Flash Read: " + flashStrError() ); 
 	}
     }
 
-// ******* flashWriteSector ***************************************************
-// write exactly one sector
+// read one sector
 /**
-  * Writes one sector to the Flash.
-  * @param sector The sector number to be written.
-  * @param buf The data.
+  * Reads one sector from the Flash.
+  * @param sector The sector number to be read.
+  * @param buf A buffer for the storage of the data.
   * @throws InvalidFirmwareException if interface 1 is not supported.
   * @throws UsbException if a communication error occurs.
   * @throws CapabilityException if Flash memory access is not possible.
   * @throws IndexOutOfBoundsException If the buffer is smaller than the Flash sector size.
   */
-    public void flashWriteSector ( int sector, byte[] buf ) throws UsbException, InvalidFirmwareException, CapabilityException, IndexOutOfBoundsException {
-	if ( buf.length < flashSectorSize() ) 
-	    throw new IndexOutOfBoundsException( "Buffer smaller than the Flash sector size: " + buf.length + " < " + flashSectorSize());
-
-	checkCapability(CAPABILITY_FLASH);
-	if ( ! flashEnabled() )
-	    throw new CapabilityException(this, "No Flash memory installed or");
-
-	try {
-	    vendorCommand2( 0x42, "Flash Write", sector, sector >> 16, buf, flashSectorSize );
-	}
-	catch ( UsbException e ) {
-	    throw new UsbException( dev().dev(), "Flash Write: " + flashStrError() );
-	}
+    public void flashReadSector ( int sector, byte[] buf ) throws UsbException, InvalidFirmwareException, CapabilityException, IndexOutOfBoundsException  {
+	flashReadSector ( sector, 1, buf );
     }
+
 
 // ******* flashWriteSector ***************************************************
 // write integer number of sectors
@@ -1385,19 +1470,60 @@ public class Ztex1v1 extends Ztex1 {
   * @throws IndexOutOfBoundsException If the buffer is to small.
   */
     public void flashWriteSector ( int sector, int num, byte[] buf ) throws UsbException, InvalidFirmwareException, CapabilityException, IndexOutOfBoundsException {
-	if ( buf.length < flashSectorSize() ) 
-	    throw new IndexOutOfBoundsException( "Buffer smaller than the Flash sector size: " + buf.length + " < " + (num*flashSectorSize()));
+	if ( num<1 ) return;
+
+	if ( buf.length < flashSectorSize()*num ) 
+	    throw new IndexOutOfBoundsException( "Buffer to small: " + buf.length + " < " + (num*flashSectorSize()));
 
 	checkCapability(CAPABILITY_FLASH);
 	if ( ! flashEnabled() )
 	    throw new CapabilityException(this, "No Flash memory installed or");
 
 	try {
-	    vendorCommand2( 0x42, "Flash Write", sector, sector >> 16, buf, flashSectorSize*num );
+	    if ( flashSectorSize()>2048 ) {
+	        byte[] buf2 = new byte[2048];
+	        int iz = (flashSectorSize-1) >> 11;
+		for (int sn=0; sn<num; sn++ ) {
+		
+		    int oto = controlMsgTimeout;
+		    controlMsgTimeout = 12000; // 12s timeout for erase
+		    System.arraycopy(buf,sn*flashSectorSize, buf2,0, 2048);
+		    vendorCommand2( 0x42, "Flash Write", sector, 0, buf, 2048 );
+		    controlMsgTimeout = oto;
+		    
+		    for (int i=1; i<iz; i++) {
+//			System.out.println("w: "+i);
+			System.arraycopy(buf,sn*flashSectorSize+i*2048, buf2,0, 2048);
+		        vendorCommand2( 0x42, "Flash Write", sector, 256, buf2, 2048 );
+		    }
+		    
+		    int len = flashSectorSize-iz*2048;
+		    System.arraycopy(buf,sn*flashSectorSize+iz*2048, buf2,0, len);
+	    	    vendorCommand2( 0x42, "Flash Write", sector, 512, buf2, len );
+	    	}
+	    }
+	    else {
+		if ( flashSectorSize*num>2048) System.err.println("Warning: flashWriteSector: Transaction size " + flashSectorSize*num + " may be too large");
+		vendorCommand2( 0x42, "Flash Write", sector, sector >> 16, buf, flashSectorSize*num );
+	    }
 	}
 	catch ( UsbException e ) {
 	    throw new UsbException( dev().dev(), "Flash Write: " + flashStrError() );
 	}
+    }
+
+// write one sector
+/**
+  * Writes one sector to the Flash.
+  * @param sector The sector number to be written.
+  * @param buf The data.
+  * @throws InvalidFirmwareException if interface 1 is not supported.
+  * @throws UsbException if a communication error occurs.
+  * @throws CapabilityException if Flash memory access is not possible.
+  * @throws IndexOutOfBoundsException If the buffer is smaller than the Flash sector size.
+  */
+    public void flashWriteSector ( int sector, byte[] buf ) throws UsbException, InvalidFirmwareException, CapabilityException, IndexOutOfBoundsException {
+	flashWriteSector(sector,1,buf);
     }
 
 // ******* flashEnabled ********************************************************
@@ -1489,16 +1615,19 @@ public class Ztex1v1 extends Ztex1 {
 /* 
     Returns configuration time in ms.
     The format of the boot sector (sector 0 of the Flash memory) is
-	0..7	
-	8..9	Number of sectors, or 0 is disabled
-	10..11  Number of bytes in the last sector, i.e. th total size of Bitstream is ((bs[8] | (bs[9]<<8) - 1) * flash_sector_size + ((bs[10] | (bs[11]<<8))
+	0..7	ID
+	8..9	Number of BS sectors, or 0 is disabled
+	10..11  Number of bytes in the last sector, i.e. the total size of Bitstream is ((bs[8] | (bs[9]<<8) - 1) * flash_sector_size + ((bs[10] | (bs[11]<<8))
 */	
 /**
   * Uploads a Bitstream to the Flash.
   * This allows the firmware to load the Bitstream from Flash. Together with installation of the firmware in EEPROM
   * it is possible to construct fully autonomous devices.
   * <p>
-  * Information about the bitstream is stored in sector 0.
+  * If configuration data is present information about bitstream are stored there and Bitstream starts
+  * at sector 0.
+  * <p>
+  * On all other devices the information about the bitstream is stored in sector 0.
   * This so called boot sector has the following format:
   * <table bgcolor="#404040" cellspacing=1 cellpadding=4>
   *   <tr>
@@ -1527,15 +1656,15 @@ public class Ztex1v1 extends Ztex1 {
   * where bs[i] denotes byte i of the boot sector.
   * <p>
   * The first sector of the Bitstream is sector 1.
-  * @param fwFileName The file name of the Bitstream. The file can be a regular file or a system resource (e.g. a file from the current jar archive).
+  * @param inputStream for reading the Bitstream.
   * @param bs 0: disable bit swapping, 1: enable bit swapping, all other values: automatic detection of bit order.
   * @throws InvalidFirmwareException if interface 1 is not supported.
   * @throws UsbException if a communication error occurs.
   * @throws CapabilityException if Flash memory access is not possible.
   * @throws BitstreamReadException if an error occurred while attempting to read the Bitstream.
   */
-    public long flashUploadBitstream ( String fwFileName, int bs ) throws BitstreamReadException, UsbException, InvalidFirmwareException, CapabilityException {
-	int secNum = 2048 / flashSectorSize;
+    public long flashUploadBitstream ( InputStream inputStream, int bs ) throws BitstreamReadException, UsbException, InvalidFirmwareException, CapabilityException {
+	int secNum = Math.max(1, 2048 / flashSectorSize());
 	final int bufferSize = secNum * flashSectorSize;
 	checkCapability(CAPABILITY_FPGA);
 	checkCapability(CAPABILITY_FLASH);
@@ -1545,9 +1674,10 @@ public class Ztex1v1 extends Ztex1 {
 	
 // read the Bitstream file	
         byte[][] buffer = new byte[32768][];
+	byte[] buf1 = new byte[flashSectorSize()];
+
 	int i,j,k;
 	try {
-	    InputStream inputStream = JInputStream.getInputStream( fwFileName );
 	    j = bufferSize;
 	    for ( i=0; i<buffer.length && j==bufferSize; i++ ) {
 		buffer[i] = new byte[bufferSize]; 
@@ -1565,7 +1695,6 @@ public class Ztex1v1 extends Ztex1 {
 		inputStream.close();
 	    }
 	    catch ( Exception e ) {
-		System.err.println( "Warning: Error closing file " + fwFileName + ": " + e.getLocalizedMessage() );
 	    }
 	}
 	catch (IOException e) {
@@ -1579,25 +1708,47 @@ public class Ztex1v1 extends Ztex1 {
 	    swapBits( buffer, bufferSize*i );
 
 // upload the Bitstream file	
-	byte[] sector = new byte[flashSectorSize];
-	byte[] ID = new String("ZTEXBS").getBytes(); 
-
-	flashReadSector(0,sector);				// read the boot sector (only the first 16 bytes are overwritten)
-	for (k=0; k<6; k++)
-	    sector[k]=ID[k];
-	sector[6] = 1;
-	sector[7] = 1;
-	k = (i-1)*secNum + (j-1)/flashSectorSize + 1;
-	sector[8] = (byte) (k & 255);
-	sector[9] = (byte) ((k>>8) & 255);
-	k = ((j-1) % flashSectorSize) + 1;
-	sector[10] = (byte) (k & 255);
-	sector[11] = (byte) ((k>>8) & 255);
+	int startSector = 0;
 	long t0 = new Date().getTime();
-	flashWriteSector(0,sector);				// write the boot sector
-	for (k=0; k<i-1; k++)
-	    flashWriteSector( 1+k*secNum, secNum, buffer[k] );	// write the Bitstream sectors
-	flashWriteSector( 1+k*secNum, (j-1)/flashSectorSize + 1, buffer[k] );
+
+	if ( config!=null && config.getMaxBitstreamSize()>0 ) {
+	    config.setBitstreamSize( ((i-1)*secNum + (j-1)/flashSectorSize + 1)*flashSectorSize );
+	}
+	else {
+	    byte[] sector = new byte[flashSectorSize];
+	    byte[] ID = new String("ZTEXBS").getBytes(); 
+
+	    flashReadSector(0,sector);				// read the boot sector (only the first 16 bytes are overwritten if boot sector is valid)
+	    boolean b = true;
+	    for (k=0; k<6; k++) {
+		b = b && (sector[k] == ID[k]);
+		sector[k]=ID[k];
+	    }
+	    if ( ! b )
+	    sector[6] = 1;
+	    sector[7] = 1;
+	    k = (i-1)*secNum + (j-1)/flashSectorSize + 1;
+	    sector[8] = (byte) (k & 255);
+	    sector[9] = (byte) ((k>>8) & 255);
+	    k = ((j-1) % flashSectorSize) + 1;
+	    sector[10] = (byte) (k & 255);
+	    sector[11] = (byte) ((k>>8) & 255);
+	    if ( ! b ) {
+		for ( k=12; k<flashSectorSize; k++ )
+		    sector[k]=0;
+	    }
+	    System.out.print("\rWriting boot sector");
+	    flashWriteSector(0,sector);				// write the boot sector
+	    
+	    startSector = 1;
+	}
+	
+	for (k=0; k<i-1; k++) {
+	    System.out.print("\rWriting sector " + (k+1)*secNum + " of " + i*secNum);
+	    flashWriteSector( startSector+k*secNum, secNum, buffer[k] );	// write the Bitstream sectors
+	}
+	System.out.println("\rWriting sector " + i*secNum + " of " + i*secNum);
+	flashWriteSector( startSector+k*secNum, (j-1)/flashSectorSize + 1, buffer[k] );
 
 	return new Date().getTime() - t0;
     } 
@@ -1606,7 +1757,28 @@ public class Ztex1v1 extends Ztex1 {
   * Uploads a Bitstream to the Flash.
   * This allows the firmware to load the Bitstream from Flash. Together with installation of the firmware in EEPROM
   * it is possible to construct fully autonomous devices.
-  * See {@link #flashUploadBitstream(String,int)} for further details.
+  * See {@link #flashUploadBitstream(InputStream,int)} for further details.
+  * @param fwFileName The file name of the Bitstream. The file can be a regular file or a system resource (e.g. a file from the current jar archive).
+  * @param bs 0: disable bit swapping, 1: enable bit swapping, all other values: automatic detection of bit order.
+  * @throws InvalidFirmwareException if interface 1 is not supported.
+  * @throws UsbException if a communication error occurs.
+  * @throws CapabilityException if Flash memory access is not possible.
+  * @throws BitstreamReadException if an error occurred while attempting to read the Bitstream.
+  */
+    public long flashUploadBitstream ( String fwFileName, int bs ) throws BitstreamReadException, UsbException, InvalidFirmwareException, CapabilityException {
+	try {
+	    return flashUploadBitstream ( JInputStream.getInputStream( fwFileName ), bs );
+	}
+	catch (IOException e) {
+	    throw new BitstreamReadException(e.getLocalizedMessage());
+	}
+    }  
+
+/**
+  * Uploads a Bitstream to the Flash.
+  * This allows the firmware to load the Bitstream from Flash. Together with installation of the firmware in EEPROM
+  * it is possible to construct fully autonomous devices.
+  * See {@link #flashUploadBitstream(InputStream,int)} for further details.
   * @param fwFileName The file name of the Bitstream. The file can be a regular file or a system resource (e.g. a file from the current jar archive).
   * @throws InvalidFirmwareException if interface 1 is not supported.
   * @throws UsbException if a communication error occurs.
@@ -1630,8 +1802,14 @@ public class Ztex1v1 extends Ztex1 {
     public void flashResetBitstream ( ) throws UsbException, InvalidFirmwareException, CapabilityException {
 	checkCapability(CAPABILITY_FLASH);
 	if ( ! flashEnabled() )
-	    throw new CapabilityException(this, "No Flash memory installed or");
-	byte[] sector = new byte[flashSectorSize];
+	    throw new CapabilityException(this, "Flash memory not installed or");
+
+	if ( config!=null && config.getMaxBitstreamSize()>0 ) {
+	    config.setBitstreamSize(0);
+	    return;
+	}
+
+	byte[] sector = new byte[flashSectorSize()];
 	byte[] ID = new String("ZTEXBS").getBytes(); 
 
 	flashReadSector(0,sector);			// read the boot sector
@@ -1646,6 +1824,7 @@ public class Ztex1v1 extends Ztex1 {
     } 
 
 // ******* flashFirstFreeSector ************************************************
+
 // Returns the first free sector of the Flash memory, i.e. the first sector behind the Bitstream
 /**
   * Returns the first free sector of the Flash memory.
@@ -1660,7 +1839,11 @@ public class Ztex1v1 extends Ztex1 {
 	if ( ! flashEnabled() )
 	    throw new CapabilityException(this, "No Flash memory installed or");
 
-	byte[] sector = new byte[flashSectorSize];
+	if ( config!=null && config.getMaxBitstreamSize()>0 ) {
+	    return (Math.max(config.getMaxBitstreamSize(), config.getBitstreamSize())+flashSectorSize()-1) / flashSectorSize();
+	}
+	    
+	byte[] sector = new byte[flashSectorSize()];
 	byte[] ID = new String("ZTEXBS").getBytes(); 
 
 	flashReadSector(0,sector);			// read the boot sector
@@ -1671,7 +1854,48 @@ public class Ztex1v1 extends Ztex1 {
 	    return 0;
 	return (sector[8] & 255) + ((sector[9] & 255) << 8) + 1;
     }
-    
+
+// ******* toHumanStr **********************************************************
+    private String toHumanStr ( long i ) {
+	if ( i==0 ) return "0";
+	StringBuilder sb = new StringBuilder();
+	int k = 0;
+	if ( i<0 ) {
+	    sb.append("-");
+	    i=-i;
+	    k=1;
+	}
+	if ( (i & 1023) != 0 ) sb.insert(k, i & 1023); i=i>>10;
+	if ( (i & 1023) != 0 ) sb.insert(k, (i & 1023) + "K"); i=i>>10;
+	if ( (i & 1023) != 0 ) sb.insert(k, (i & 1023) + "M"); i=i>>10;
+	if ( i != 0 ) sb.append(i + "G");;
+	return sb.toString();
+    }
+
+// ******* flashInfo **********************************************************
+/**
+  * Returns information about Flash memory. 
+  * The result contains the size and how much of the Flash is us used / reserved for / by the Bitstream.
+  * If no Flash memeory is suppported an empty string is returned.
+  * Returns Information about Flash memory.
+  */
+    public String flashInfo ( ) {
+	StringBuilder sb = new StringBuilder();
+	try { 
+	    if ( flashSize() > 0 ) {
+		sb.append( "Size: " + toHumanStr(flashSize()) + " Bytes" );
+		if ( config!=null && config.getMaxBitstreamSize()>0 ) {
+		    sb.append( ";  Bitstream (used / reserved): " + toHumanStr(config.getBitstreamSize()) + " / "  + toHumanStr(config.getMaxBitstreamSize()) + " Bytes" );
+		}
+		else {
+		    sb.append( ";  Bitstream (used): " + toHumanStr(flashFirstFreeSector()*flashSectorSize()) + " Bytes" );
+		}
+	    }
+	}
+	catch ( Exception e ) {
+	}
+	return sb.toString();
+    }
 
 // ******* debugStackSize ******************************************************
 /**
@@ -2259,7 +2483,7 @@ public class Ztex1v1 extends Ztex1 {
 //  returns configuration time in ms
 /**
   * Upload a Bitstream to the FPGA using high speed mode.
-  * @param fwFileName The file name of the Bitstream. The file can be a regular file or a system resource (e.g. a file from the current jar archive).
+  * @param inputStream for reading the Bitstream.
   * @param force If set to true existing configurations will be overwritten. (By default an {@link AlreadyConfiguredException} is thrown).
   * @param bs 0: disable bit swapping, 1: enable bit swapping, all other values: automatic detection of bit order.
   * @throws BitstreamReadException if an error occurred while attempting to read the Bitstream.
@@ -2269,7 +2493,7 @@ public class Ztex1v1 extends Ztex1 {
   * @throws UsbException if a communication error occurs.
   * @throws CapabilityException if FPGA configuration is not supported by the firmware.
   */
-    public long configureFpgaHS ( String fwFileName, boolean force, int bs ) throws BitstreamReadException, UsbException, BitstreamUploadException, AlreadyConfiguredException, InvalidFirmwareException, CapabilityException {
+    public long configureFpgaHS ( InputStream inputStream, boolean force, int bs ) throws BitstreamReadException, UsbException, BitstreamUploadException, AlreadyConfiguredException, InvalidFirmwareException, CapabilityException {
 	final int transactionBytes = 16384;
 	long t0 = 0;
 	byte[] settings = new byte[2];
@@ -2288,7 +2512,6 @@ public class Ztex1v1 extends Ztex1 {
         byte[][] buffer = new byte[16*1024*1024/transactionBytes][];
 	int size = 0;
 	try {
-	    InputStream inputStream = JInputStream.getInputStream( fwFileName );
 	    int j = transactionBytes;
 	    for ( int i=0; i<buffer.length && j==transactionBytes; i++ ) {
 		buffer[i] = new byte[transactionBytes]; 
@@ -2308,7 +2531,6 @@ public class Ztex1v1 extends Ztex1 {
 		inputStream.close();
 	    }
 	    catch ( Exception e ) {
-		System.err.println( "Warning: Error closing file " + fwFileName + ": " + e.getLocalizedMessage() );
 	    }
 	}
 	catch (IOException e) {
@@ -2401,7 +2623,63 @@ public class Ztex1v1 extends Ztex1 {
 	return t0;
     } 
 
+//  returns configuration time in ms
+/**
+  * Upload a Bitstream to the FPGA using high speed mode.
+  * @param fwFileName The file name of the Bitstream. The file can be a regular file or a system resource (e.g. a file from the current jar archive).
+  * @param force If set to true existing configurations will be overwritten. (By default an {@link AlreadyConfiguredException} is thrown).
+  * @param bs 0: disable bit swapping, 1: enable bit swapping, all other values: automatic detection of bit order.
+  * @throws BitstreamReadException if an error occurred while attempting to read the Bitstream.
+  * @throws BitstreamUploadException if an error occurred while attempting to upload the Bitstream.
+  * @throws AlreadyConfiguredException if the FPGA is already configured.
+  * @throws InvalidFirmwareException if interface 1 is not supported.
+  * @throws UsbException if a communication error occurs.
+  * @throws CapabilityException if FPGA configuration is not supported by the firmware.
+  */
+    public long configureFpgaHS ( String fwFileName, boolean force, int bs ) throws BitstreamReadException, UsbException, BitstreamUploadException, AlreadyConfiguredException, InvalidFirmwareException, CapabilityException {
+	try {
+	    return configureFpgaHS( JInputStream.getInputStream( fwFileName ), force, bs );
+	}
+	catch (IOException e) {
+	    throw new BitstreamReadException(e.getLocalizedMessage());
+	}
+    }
+
 // ******* configureFpga *****************************************************
+//  returns configuration time in ms
+/**
+  * Upload a Bitstream to the FPGA using high speed mode (if available) or low speed mode.
+  * @param inputStream for reading the Bitstream.
+  * @param force If set to true existing configurations will be overwritten. (By default an {@link AlreadyConfiguredException} is thrown).
+  * @param bs 0: disable bit swapping, 1: enable bit swapping, all other values: automatic detection of bit order.
+  * @throws BitstreamReadException if an error occurred while attempting to read the Bitstream.
+  * @throws BitstreamUploadException if an error occurred while attempting to upload the Bitstream.
+  * @throws AlreadyConfiguredException if the FPGA is already configured.
+  * @throws InvalidFirmwareException if interface 1 is not supported.
+  * @throws UsbException if a communication error occurs.
+  * @throws CapabilityException if FPGA configuration is not supported by the firmware.
+  * @throws IOException if mark/reset is not supported
+  */
+    public long configureFpga ( InputStream inputStream, boolean force, int bs ) throws BitstreamReadException, UsbException, BitstreamUploadException, AlreadyConfiguredException, InvalidFirmwareException, CapabilityException, IOException {
+	try {
+	    inputStream.mark(64*1024*1024);
+	    return configureFpgaHS( inputStream, force, bs );
+	}
+	catch ( CapabilityException e ) {
+	    return configureFpgaLS( inputStream, force, bs );
+	}
+	catch ( UsbException e ) {
+	    System.err.println("Warning: High speed FPGA configuration failed, trying low speed mode:" + e.getLocalizedMessage() +": Trying low speed mode");
+	    inputStream.reset();
+	    return configureFpgaLS( inputStream, force, bs );
+	}
+	catch ( BitstreamUploadException e ) {
+	    System.err.println("Warning: High speed FPGA configuration failed, trying low speed mode:" + e.getLocalizedMessage() +": Trying low speed mode");
+	    inputStream.reset();
+	    return configureFpgaLS( inputStream, force, bs );
+	}
+    }
+
 //  returns configuration time in ms
 /**
   * Upload a Bitstream to the FPGA using high speed mode (if available) or low speed mode.
@@ -2455,26 +2733,18 @@ public class Ztex1v1 extends Ztex1 {
   * @param length The amount of bytes to be sent.
   * @throws InvalidFirmwareException if interface 1 is not supported.
   * @throws UsbException if a communication error occurs.
-  * @throws CapabilityException if MAC EEPROM access is not supported by the firmware.
+  * @throws CapabilityException if MAC EEPROM access is not supported by the firmware or if configuration data is present and there is a write to addresses 0 to 79. In order to override this behavior set {@link #config} variable to null.
   */
     public void macEepromWrite ( int addr, byte[] buf, int length ) throws UsbException, InvalidFirmwareException, CapabilityException {
 	checkCapability(CAPABILITY_MAC_EEPROM);
-	byte[] buf2 = new byte[8];
-	int ptr = 0;
-	while (length>0 ) {
-	    int i = Math.min( 8 - (addr & 7), length );
-	    for ( int j=0; j<i; j++ ) 
-		buf2[j] = buf[ptr+j];
-	    vendorCommand2( 0x3C, "MAC EEPROM Write", addr, 0, buf2, i );
-    	    try {
-    		Thread.sleep( 10 );
-	    }
-	    catch ( InterruptedException e) {
-    	    } 
-    	    addr+=i;
-    	    length-=i;
-    	    ptr += i;
-    	}
+	if ( ( config != null ) && ( addr<80 ))
+	    throw new CapabilityException(this, "Overwriting configuration data in MAC EEPROM");
+	vendorCommand2( 0x3C, "MAC EEPROM Write", addr, 0, buf, length );
+        try {
+    	    Thread.sleep( 10 );
+	}
+	catch ( InterruptedException e) {
+    	} 
     }
 
 // ******* macEepromRead *******************************************************
@@ -2577,6 +2847,64 @@ public class Ztex1v1 extends Ztex1 {
 	    }
 	}
 	selectedFpga = num;
+    }
+
+// ******* TempSensorRead ******************************************************
+/**
+  * Read temperature sensor data.
+  * @param idx Temperature sensor index
+  * @return Temperature in deg. C
+  * @throws InvalidFirmwareException If interface 1 or temperature sensor protocol is not supported.
+  * @throws UsbException If a communication error occurs.
+  * @throws CapabilityException If NVRAM access to ATxmega is not supported by the firmware.
+  * @throws IndexOutOfBoundsException If idx is not in range.
+  */
+    public double tempSensorRead ( int idx ) throws UsbException, InvalidFirmwareException, CapabilityException, IndexOutOfBoundsException {
+	int[] xIdx = { 3, 4, 1, 2 };
+    
+	checkCapability(CAPABILITY_TEMP_SENSOR);
+	
+	int len = 0;
+	
+	if ( tempSensorUpdateInterval < 40 ) 
+	    tempSensorUpdateInterval = 40;
+	
+	if ( new Date().getTime() > lastTempSensorReadTime+tempSensorUpdateInterval ) {
+	    len = vendorRequest( 0x58, "Temperature Sensor Read", 0, 0, tempSensorBuf, tempSensorBuf.length );
+	    lastTempSensorReadTime = new Date().getTime();
+
+	    if ( len != 5 || tempSensorBuf[0] != 1 )
+		throw new InvalidFirmwareException("tempSensorRead: Invalid temperature sensor protocol");
+	}
+	
+	if ( idx<0 || idx>3 ) 
+	    throw new IndexOutOfBoundsException( "tempSensorRead: Invalid temperature sensor index" );
+	    
+	return ((tempSensorBuf[xIdx[idx]] & 255)-77.2727)/1.5454;	
+    }
+
+// ******* printSpiState *******************************************************
+// returns true if Flash is available
+/**
+  * Prints out some debug information about SPI Flash.<br>
+  * <b>Only use this method if such kind of Flash is installed.</b>
+  * @throws InvalidFirmwareException if interface 1 is not supported.
+  * @throws UsbException if a communication error occurs.
+  * @throws CapabilityException if Flash memory access is not supported by the firmware.
+  */
+    public boolean printSpiState ( ) throws UsbException, InvalidFirmwareException, CapabilityException {
+	byte[] buf = new byte[10];
+	checkCapability(CAPABILITY_FLASH);
+	vendorRequest2(0x43, "SPI State", 0, 0, buf, 10);
+	System.out.println("ec=" + buf[0] +
+	        "   vendor=" + Integer.toHexString(buf[1] & 255).toUpperCase() + "h" +
+	        "   device=" + Integer.toHexString(buf[2] & 255).toUpperCase() + "h" +
+	        "   memType=" + Integer.toHexString(buf[3] & 255).toUpperCase() + "h" +
+	        "   eraseCmd=" + Integer.toHexString(buf[4] & 255).toUpperCase() + "h" +
+	        "   lastCmd=" + Integer.toHexString(buf[5] & 255).toUpperCase() + "h" +
+		"   buf=" + (buf[6] & 255)+" "+(buf[7] & 255)+" "+(buf[8] & 255)+" "+(buf[9] & 255)
+	    );
+	return flashEnabled == 1;
     }
 
 }    

@@ -17,7 +17,7 @@
 !*/
 
 /*
-    Common functions for FPGA configuration from flash memory
+    Common functions for FPGA configuration from microSD flash
 */    
 
 
@@ -124,7 +124,7 @@ WORD fpga_first_free_sector() {
 /* *********************************************************************
    ***** fpga_configure_from_flash_init ********************************
    ********************************************************************* */
-// this function is colled by init_USB;
+// this function is called by init_USB;
 void fpga_configure_from_flash_init() {
     if ( ! flash_enabled ) {
         fpga_flash_result = 2;

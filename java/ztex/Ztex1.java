@@ -55,7 +55,6 @@ public class Ztex1 {
     private long lastVendorCommandT = 0;
     
     
-
 // ******* Ztex1 ***************************************************************
 /** 
   * Constructs an instance from a given device.
@@ -64,7 +63,15 @@ public class Ztex1 {
   */
     public Ztex1 ( ZtexDevice1 pDev ) throws UsbException {
 	dev = pDev;
-	
+	init();
+    }
+
+// ******* init ****************************************************************
+/** 
+  * Initializates the class.
+  * @throws UsbException if an communication error occurred.
+  */
+    protected void init () throws UsbException {
 	for (int i=0; i<256; i++)
 	    interfaceClaimed[i] = false;
 
@@ -463,7 +470,7 @@ public class Ztex1 {
 	    throw new InvalidFirmwareException( e.getLocalizedMessage() );
 	}
 	
-	handle = LibusbJava.usb_open( dev.dev() );
+	init();
     }
 
 // ******* uploadFirmware ******************************************************
@@ -533,6 +540,39 @@ public class Ztex1 {
 	ZtexIhxFile1 ihxFile;
 	try {
 	    ihxFile = new ZtexIhxFile1( ihxFileName );
+	}
+	catch ( IOException e ) {
+	    throw new FirmwareUploadException( e.getLocalizedMessage() );
+	}
+	catch ( IhxFileDamagedException e ) {
+	    throw new FirmwareUploadException( e.getLocalizedMessage() );
+	}
+	return uploadFirmware( ihxFile, force );
+    }
+
+/**
+  * Uploads the firmware to the EZ-USB and manages the renumeration process.
+  * <p>
+  * Before the firmware is uploaded the device is set into a reset state.
+  * After the upload the firmware is booted and the renumeration starts.
+  * During this process the device disappears from the bus and a new one 
+  * occurs which will be assigned to this class automatically (instead of the disappeared one).
+  * @param ihxIn Input stream from which the ihx file is read.
+  * @param name Name of the input.
+  * @param force The compatibility check is skipped if true.
+  * @throws IncompatibleFirmwareException if the given firmware is not compatible to the installed one, see {@link ZtexDevice1#compatible(int,int,int,int)} (Upload can be enforced using the <tt>force</tt> parameter)
+  * @throws FirmwareUploadException If an error occurred while attempting to upload the firmware.
+  * @throws UsbException if a communication error occurs.
+  * @throws InvalidFirmwareException if ZTEX descriptor 1 is not available.
+  * @throws DeviceLostException if a device went lost after renumeration.
+  * @return the upload time in ms.
+  */
+//  returns upload time in ms
+    public long uploadFirmware ( InputStream ihxIn, String name, boolean force ) throws IncompatibleFirmwareException, FirmwareUploadException, UsbException, InvalidFirmwareException, DeviceLostException {
+// load the ihx file
+	ZtexIhxFile1 ihxFile;
+	try {
+	    ihxFile = new ZtexIhxFile1( ihxIn, name );
 	}
 	catch ( IOException e ) {
 	    throw new FirmwareUploadException( e.getLocalizedMessage() );

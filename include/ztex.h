@@ -39,7 +39,7 @@ __xdata BYTE is_ufm_1_15x;
 #include[ztex-utils.h]
 
 /* *********************************************************************
-   ***** EEPROM support and some I2C helper functions ******************
+   ***** I2C helper functions, EEPROM and MAC EEPROM support ***********
    ********************************************************************* */
 #ifneq[EEPROM_DISABLED][1]
 
@@ -50,6 +50,12 @@ __xdata BYTE is_ufm_1_15x;
 #ifeq[PRODUCT_IS][UFM-1_15Y]
 #define[MAC_EEPROM_ENABLED]
 #endif // PRODUCT_IS=UFM-1_15Y
+#ifeq[PRODUCT_IS][UFM-2_16]
+#define[MAC_EEPROM_ENABLED]
+#endif // PRODUCT_IS=UFM-2_16
+#ifeq[PRODUCT_IS][UFM-2_13]
+#define[MAC_EEPROM_ENABLED]
+#endif // PRODUCT_IS=UFM-2_13
 #endif // EEPROM_MAC_DISABLED
 
 #include[ztex-eeprom.h]
@@ -72,14 +78,6 @@ __xdata BYTE is_ufm_1_15x;
 
 #elifeq[PRODUCT_IS][UFM-1_2]
 #define[MMC_PORT][E]
-#define[MMC_BIT_CS][7]
-#define[MMC_BIT_DI][6]
-#define[MMC_BIT_DO][4]
-#define[MMC_BIT_CLK][5]
-#include[ztex-flash1.h]
-
-#elifeq[PRODUCT_IS][UM-1_0]
-#define[MMC_PORT][C]
 #define[MMC_BIT_CS][7]
 #define[MMC_BIT_DI][6]
 #define[MMC_BIT_DO][4]
@@ -128,6 +126,22 @@ __xdata BYTE is_ufm_1_15x;
 #define[MMC_BIT_CLK][5]
 #include[ztex-flash1.h]
 
+#elifeq[PRODUCT_IS][UFM-2_16]
+#define[SPI_PORT][C]
+#define[SPI_BIT_DO][4]
+#define[SPI_BIT_CS][5]
+#define[SPI_BIT_CLK][6]
+#define[SPI_BIT_DI][7]
+#include[ztex-flash2.h]
+
+#elifeq[PRODUCT_IS][UFM-2_13]
+#define[SPI_PORT][C]
+#define[SPI_BIT_DO][4]
+#define[SPI_BIT_CS][5]
+#define[SPI_BIT_CLK][6]
+#define[SPI_BIT_DI][7]
+#include[ztex-flash2.h]
+
 #else
 #warning[Flash memory access is not supported by this product]
 #define[FLASH_ENABLED][0]
@@ -151,6 +165,10 @@ __xdata BYTE is_ufm_1_15x;
 #include[ztex-fpga4.h]
 #elifeq[PRODUCT_IS][UFM-1_15Y]
 #include[ztex-fpga5.h]
+#elifeq[PRODUCT_IS][UFM-2_16]
+#include[ztex-fpga6.h]
+#elifeq[PRODUCT_IS][UFM-2_13]
+#include[ztex-fpga6.h]
 #endif
 
 
@@ -192,20 +210,47 @@ __xdata BYTE is_ufm_1_15x;
 #endif
 
 /* *********************************************************************
-   ***** define the descriptors and the interrupt routines *************
+   ***** define the descriptors ****************************************
    ********************************************************************* */
 #include[ztex-descriptors.h]
+
+
+/* *********************************************************************
+   ***** Temperature sensor support ************************************
+   ********************************************************************* */
+#ifneq[EEPROM_DISABLED][1]
+#ifneq[TEMP_SENSOR_DISABLED][1]
+#ifeq[PRODUCT_IS][UFM-1_15Y]
+#include[ztex-temp1.h]
+#endif
+
+#endif // TEMP_SENSOR_DISABLED
+#endif // EEPROM_DISABLED
+
+
+/* *********************************************************************
+   ***** interrupt routines ********************************************
+   ********************************************************************* */
 #include[ztex-isr.h]
 
 
-#ifdef[@CAPABILITY_MAC_EEPROM;]
 /* *********************************************************************
    ***** mac_eeprom_init ***********************************************
    ********************************************************************* */
+#ifdef[@CAPABILITY_MAC_EEPROM;]
 void mac_eeprom_init ( ) { 
     BYTE b,c,d;
     __xdata BYTE buf[5];
     __code char hexdigits[] = "0123456789ABCDEF";    
+
+    mac_eeprom_read ( buf, 0, 3 );	// read signature
+    if ( buf[0]==67 && buf[1]==68 && buf[2]==48 ) {
+	config_data_valid = 1;
+	mac_eeprom_read ( SN_STRING, 16, 10 );	// copy serial number
+    }
+    else {
+	config_data_valid = 0;
+    }
     
     for (b=0; b<10; b++) {	// abort if SN != "0000000000"
 	if ( SN_STRING[b] != 48 )
@@ -297,6 +342,10 @@ void init_USB ()
     OEA |= bmBIT1;
 #elifeq[PRODUCT_IS][UFM-1_15Y]
     init_fpga();
+#elifeq[PRODUCT_IS][UFM-2_16]
+    init_fpga();
+#elifeq[PRODUCT_IS][UFM-2_13]
+    init_fpga();
 #endif
 
     INIT_CMDS;    
@@ -352,9 +401,6 @@ void init_USB ()
 #ifeq[FLASH_ENABLED][1]
     flash_init();
 #endif
-#ifeq[FLASH_BITSTREAM_ENABLED][1]
-    fpga_configure_from_flash_init();
-#endif
 #ifeq[DEBUG_ENABLED][1]
     debug_init();
 #endif
@@ -363,6 +409,12 @@ void init_USB ()
 #endif
 #ifdef[@CAPABILITY_MAC_EEPROM;]
     mac_eeprom_init();
+#endif
+#ifeq[TEMP1_ENABLED][1]
+    temp1_init();
+#endif
+#ifeq[FLASH_BITSTREAM_ENABLED][1]
+    fpga_configure_from_flash_init();
 #endif
 
     USBCS |= bmBIT7 | bmBIT1;

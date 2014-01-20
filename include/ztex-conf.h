@@ -375,7 +375,7 @@ EP_POLL(8,1);
 
 /* 
    Identify as ZTEX USB FPGA Module 1.11
-   Usage: IDENTITY_UFM_1_10(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
+   Usage: IDENTITY_UFM_1_11(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
 */
 #define[IDENTITY_UFM_1_11(][.$1.$2.$3,$4);][#define[PRODUCT_ID_0][$0]
 #define[PRODUCT_ID_1][$1]
@@ -387,7 +387,7 @@ EP_POLL(8,1);
 
 /* 
    Identify as ZTEX USB FPGA Module 1.15
-   Usage: IDENTITY_UFM_1_10(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
+   Usage: IDENTITY_UFM_1_15(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
 */
 #define[IDENTITY_UFM_1_15(][.$1.$2.$3,$4);][#define[PRODUCT_ID_0][$0]
 #define[PRODUCT_ID_1][$1]
@@ -400,7 +400,7 @@ EP_POLL(8,1);
 
 /* 
    Identify as ZTEX USB FPGA Module 1.15y
-   Usage: IDENTITY_UFM_1_10(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
+   Usage: IDENTITY_UFM_1_15Y(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
 */
 #define[IDENTITY_UFM_1_15Y(][.$1.$2.$3,$4);][#define[PRODUCT_ID_0][$0]
 #define[PRODUCT_ID_1][$1]
@@ -411,6 +411,31 @@ EP_POLL(8,1);
 #define[PRODUCT_STRING]["USB-FPGA Module 1.15y"]
 #define[NUMBER_OF_FPGAS][4]]
 
+/* 
+   Identify as ZTEX USB FPGA Module 2.16
+   Usage: IDENTITY_UFM_2_16(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
+*/
+#define[IDENTITY_UFM_2_16(][.$1.$2.$3,$4);][#define[PRODUCT_ID_0][$0]
+#define[PRODUCT_ID_1][$1]
+#define[PRODUCT_ID_2][$2]
+#define[PRODUCT_ID_3][$3]
+#define[FWVER][$4]
+#define[PRODUCT_IS][UFM-2_16]
+#define[PRODUCT_STRING]["USB-FPGA Module 2.16"]
+#define[NUMBER_OF_FPGAS][1]]
+
+/* 
+   Identify as ZTEX USB FPGA Module 2.13
+   Usage: IDENTITY_UFM_2_13(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
+*/
+#define[IDENTITY_UFM_2_13(][.$1.$2.$3,$4);][#define[PRODUCT_ID_0][$0]
+#define[PRODUCT_ID_1][$1]
+#define[PRODUCT_ID_2][$2]
+#define[PRODUCT_ID_3][$3]
+#define[FWVER][$4]
+#define[PRODUCT_IS][UFM-2_13]
+#define[PRODUCT_STRING]["USB-FPGA Module 2.13"]
+#define[NUMBER_OF_FPGAS][1]]
 
 /* 
    Identify as ZTEX USB Module 1.0
@@ -456,7 +481,7 @@ EP_POLL(8,1);
 
 
 /* 
-   This macro disables EEPROM interface and certain I2C functions (enabled by default)
+   This macro disables EEPROM interface, I2C helper functions and all other I2C devices (enabled by default)
    Usage: DISABLE_EEPROM; 
 */
 #define[DISABLE_EEPROM;][#define[EEPROM_DISABLED][1]]
@@ -473,6 +498,13 @@ EP_POLL(8,1);
    Usage: ENABLE_FLASH_BITSTREAM; 
 */
 #define[ENABLE_FLASH_BITSTREAM;][#define[FLASH_BITSTREAM_ENABLED][1]]
+
+/* 
+   Define this macro to use 4k sectors instead of 64k sectors of SPI Flash, if possible
+   This is usually much slower and only recommended if you do not use the Flash for storing the Bitstream.
+   Usage: USE_4KSECTORS;
+*/
+#define[USE_4KSECTORS;][#define[USE_4KSECTORS_ENABLED][1]]
 
 /* 
    This enables the debug helper. The debug helper consists in a stack of messages which can be read out from host software.
@@ -523,4 +555,10 @@ EP_POLL(8,1);
 */
 #define[ENABLE_UFM_1_15X_DETECTION;][#define[UFM_1_15X_DETECTION_ENABLED][1]]
 
-#endif
+/* 
+   This macro disables temperature sensor support
+   Usage: TEMP_SENSOR_DISABLE;
+*/
+#define[TEMP_SENSOR_DISABLE;][#define[TEMP_SENSOR_DISABLED][1]]
+
+#endif // ZTEX_CONF_H

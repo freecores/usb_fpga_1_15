@@ -350,9 +350,9 @@ const char __xdata GPIF_WAVE_DATA_HSFPGA_12MHZ[32] =
 
 
 void init_cpld_fpga_configuration() {
-    IFCONFIG = bmBIT7 | bmBIT6 | bmBIT5 | 2;	// Internal source, 48MHz, GPIF
+    IFCONFIG = bmBIT7 | bmBIT6 | 2;	// Internal source, 48MHz, GPIF
 
-    GPIFREADYCFG = 0; //bmBIT7 | bmBIT6 | bmBIT5;
+    GPIFREADYCFG = 0;
     GPIFCTLCFG = 0x0; 
     GPIFIDLECS = 0;
     GPIFIDLECTL = 4;
@@ -641,7 +641,7 @@ __asm
 __endasm;    
 }
 
-#include[ztex-fpga-flash.h]
+#include[ztex-fpga-flash1.h]
 
 #else
 #warning[Flash interface is not enabled but required for FPGA configuration using a bitstream from Flash meomory]

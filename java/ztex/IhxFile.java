@@ -58,12 +58,12 @@ public class IhxFile {
 /**
   * Constructs an instance from a given file name.
   * This method can also read system resources, e.g. files from the current jar archive.
-  * @param fileName The file name.
+  * @param in Input stream from which the ihx file is read.
+  * @param name Name of the input.
   * @throws IOException If an read error occurred.
   * @throws IhxFileDamagedException If the ihx file is damaged.
   */
-    public IhxFile ( String fileName ) throws IOException, IhxFileDamagedException {
-	InputStream in = JInputStream.getInputStream( fileName );
+    public IhxFile ( InputStream in, String name ) throws IOException, IhxFileDamagedException {
 	int b, len, cs, addr;
 	byte buf[] = new byte[255];
 	boolean eof = false;
@@ -120,15 +120,26 @@ public class IhxFile {
 	    }
 	}
 	catch ( IhxParseException e ) {
-	    throw new IhxFileDamagedException ( fileName, line, e.getLocalizedMessage() );
+	    throw new IhxFileDamagedException ( name, line, e.getLocalizedMessage() );
 	}
 
 	try {
 	    in.close();
 	}
 	catch ( Exception e ) {
-	    System.err.println( "Warning: Error closing file " + fileName + ": " + e.getLocalizedMessage() );
+	    System.err.println( "Warning: Error closing file " + name + ": " + e.getLocalizedMessage() );
 	}
+    }
+
+/**
+  * Constructs an instance from a given file name.
+  * This method can also read system resources, e.g. files from the current jar archive.
+  * @param fileName The file name.
+  * @throws IOException If an read error occurred.
+  * @throws IhxFileDamagedException If the ihx file is damaged.
+  */
+    public IhxFile ( String fileName ) throws IOException, IhxFileDamagedException {
+	this( JInputStream.getInputStream( fileName ), fileName );
     }
 
 // ******* dataInfo ************************************************************

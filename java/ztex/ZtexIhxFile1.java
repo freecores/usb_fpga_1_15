@@ -47,14 +47,15 @@ public class ZtexIhxFile1 extends IhxFile {
 /**
   * Constructs an instance from a given file name and descriptor position.<br>
   * This method can also read system resources, e.g. files from the current jar archive.
-  * @param fileName The file name.
+  * @param in Input stream from which the ihx file is read.
+  * @param name Name of the input.
   * @param pZtexDescriptorOffs The position of the descriptor in bytes. The default position is 0x6c.
   * @throws IOException If an read error occurred.
   * @throws IhxFileDamagedException If the ihx file is damaged.
   * @throws IncompatibleFirmwareException If the firmware image contains no valid ZTEX descriptor 1 at the specified position.
   */
-    public ZtexIhxFile1( String fileName, int pZtexDescriptorOffs ) throws IOException, IhxFileDamagedException, IncompatibleFirmwareException {
-	super( fileName );
+    public ZtexIhxFile1( InputStream in, String name, int pZtexDescriptorOffs ) throws IOException, IhxFileDamagedException, IncompatibleFirmwareException {
+	super( in, name );
 
 	ztexDescriptorOffs = pZtexDescriptorOffs;
 	
@@ -103,6 +104,34 @@ public class ZtexIhxFile1 extends IhxFile {
     }
 
 /**
+  * Constructs an instance from a given file name and descriptor position.<br>
+  * The ZTEX descriptor 1 is expected to be at the position 0x6c of the firmware image.<br>
+  * This method can also read system resources, e.g. files from the current jar archive.
+  * @param in Input stream from which the ihx file is read.
+  * @param name Name of the input.
+  * @throws IOException If an read error occurred.
+  * @throws IhxFileDamagedException If the ihx file is damaged.
+  * @throws IncompatibleFirmwareException If the firmware image contains no valid ZTEX descriptor 1 at the specified position.
+  */
+    public ZtexIhxFile1( InputStream in, String name ) throws IOException, IhxFileDamagedException, IncompatibleFirmwareException {
+	this( in, name, defaultZtexDescriptorOffs );
+    }
+
+/**
+  * Constructs an instance from a given file name and descriptor position.<br>
+  * This method can also read system resources, e.g. files from the current jar archive.
+  * @param fileName The file name.
+  * @param pZtexDescriptorOffs The position of the descriptor in bytes. The default position is 0x6c.
+  * @throws IOException If an read error occurred.
+  * @throws IhxFileDamagedException If the ihx file is damaged.
+  * @throws IncompatibleFirmwareException If the firmware image contains no valid ZTEX descriptor 1 at the specified position.
+  */
+    public ZtexIhxFile1( String fileName , int pZtexDescriptorOffs ) throws IOException, IhxFileDamagedException, IncompatibleFirmwareException {
+	this( JInputStream.getInputStream(fileName), fileName, pZtexDescriptorOffs );
+	
+    }
+
+/**
   * Constructs an instance from a given file name.
   * The ZTEX descriptor 1 is expected to be at the position 0x6c of the firmware image.<br>
   * This method can also read system resources, e.g. files from the current jar archive.
@@ -112,7 +141,7 @@ public class ZtexIhxFile1 extends IhxFile {
   * @throws IncompatibleFirmwareException If the firmware image contains no valid ZTEX descriptor 1 at the specified position.
   */
     public ZtexIhxFile1( String fileName ) throws IOException, IhxFileDamagedException, IncompatibleFirmwareException {
-	this( fileName, defaultZtexDescriptorOffs );
+	this( JInputStream.getInputStream(fileName), fileName, defaultZtexDescriptorOffs );
     }
 
 // ******* productId ***********************************************************

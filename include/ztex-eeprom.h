@@ -127,7 +127,7 @@ eeprom_select_start:
    ***** eeprom_read ***************************************************
    ********************************************************************* */
 /* Reads <length> bytes from EEPROM address <addr> and write them to buf. 
-   Returns the number of bytes read. This number is 0 during a write cycle. */
+   Returns the number of bytes read. */
 BYTE eeprom_read ( __xdata BYTE *buf, WORD addr, BYTE length ) { 
     BYTE bytes = 0,i;
     
@@ -174,9 +174,12 @@ eeprom_read_end:
    ********************************************************************* */
 /* Writes <length> bytes from buf to EEPROM address <addr>.
    <length> must be smaller or equal than 8. Returns the number of bytes
-   read. This number is 0 during a write cycle. */
+   read. */
 BYTE eeprom_write ( __xdata BYTE *buf, WORD addr, BYTE length ) {
     BYTE bytes = 0;
+
+    if ( length == 0 ) 
+	return 0;
 
     if ( eeprom_select(EEPROM_ADDR, 100,0) ) 
 	goto eeprom_write_end;
@@ -256,11 +259,16 @@ ADD_EP0_VENDOR_REQUEST((0x3A,,				// EEPROM state
 
 __xdata BYTE mac_eeprom_addr;
 
+// details about the configuration data structure can be found at 
+// http://www.ztex.de/firmware-kit/docs/java/ztex/ConfigData.html
+
+__xdata BYTE config_data_valid;
+
 /* *********************************************************************
    ***** mac_eeprom_read ***********************************************
    ********************************************************************* */
 /* Reads <length> bytes from EEPROM address <addr> and write them to buf. 
-   Returns the number of bytes read. This number is 0 during a write cycle. */
+   Returns the number of bytes read. */
 BYTE mac_eeprom_read ( __xdata BYTE *buf, BYTE addr, BYTE length ) { 
     BYTE bytes = 0,i;
     
@@ -274,7 +282,6 @@ BYTE mac_eeprom_read ( __xdata BYTE *buf, BYTE addr, BYTE length ) {
     if ( i2c_waitWrite() ) goto mac_eeprom_read_end;
     I2CS |= bmBIT6;
     i2c_waitStop();
-
 
     I2CS |= bmBIT7;		// start bit
     i2c_waitStart();
@@ -306,25 +313,42 @@ mac_eeprom_read_end:
    ********************************************************************* */
 /* Writes <length> bytes from buf to and write them EEPROM address <addr>.
    <length> must be smaller or equal than 8. Returns the number of bytes
-   read. This number is 0 during a write cycle. */
+   written. */
 BYTE mac_eeprom_write ( __xdata BYTE *buf, BYTE addr, BYTE length ) {
     BYTE bytes = 0;
 
+    if ( length == 0 ) 
+	return 0;
+    
     if ( eeprom_select(EEPROM_MAC_ADDR, 100,0) ) 
 	goto mac_eeprom_write_end;
     
     I2DAT = addr;          	// write address
     if ( i2c_waitWrite() ) goto mac_eeprom_write_end;
     
-    for (; bytes<length; bytes++ ) {
+    while ( bytes<length ) {
 	I2DAT = *buf;         	// write data 
 	buf++;
 	if ( i2c_waitWrite() ) goto mac_eeprom_write_end;
+	
+	addr++;
+	bytes++;
+	if ( ( (addr & 8) == 0 ) && ( bytes<length ) ) {
+	    I2CS |= bmBIT6;		// stop bit
+	    i2c_waitStop();
+
+	    if ( eeprom_select(EEPROM_MAC_ADDR, 100,0) ) 
+		goto mac_eeprom_write_end;
+
+	    I2DAT = addr;          	// write address
+	    if ( i2c_waitWrite() ) goto mac_eeprom_write_end;
+	} 
     }
     I2CS |= bmBIT6;		// stop bit
     i2c_waitStop();
 	
 mac_eeprom_write_end:
+    mac_eeprom_addr = addr;
     return bytes;
 }
 
@@ -335,6 +359,7 @@ BYTE mac_eeprom_read_ep0 () {
     BYTE i, b;
     b = ep0_payload_transfer;
     i = mac_eeprom_read(EP0BUF, mac_eeprom_addr, b);
+    mac_eeprom_addr += b;
     return i;
 }
 

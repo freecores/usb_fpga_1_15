@@ -254,7 +254,7 @@ __asm
 __endasm;    
 }
 
-#include[ztex-fpga-flash.h]
+#include[ztex-fpga-flash1.h]
 
 #else
 #warning[Flash interface is not enabled but required for FPGA configuration using a bitstream from Flash meomory]
