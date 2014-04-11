@@ -1,6 +1,6 @@
 /*!
    ZTEX Firmware Kit for EZ-USB FX2 Microcontrollers
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,8 @@ __xdata __at ZTEX_DESCRIPTOR_OFFS+2 BYTE ZTEXID[4];
    10.15.*.*		// ZTEX USB-FPGA-Module 1.15y
    10.16.*.*		// ZTEX USB-FPGA-Module 2.16
    10.17.*.*		// ZTEX USB-FPGA-Module 2.13
+   10.18.*.*		// ZTEX USB-FPGA-Module 2.01
+   10.19.*.*		// ZTEX USB-FPGA-Module 2.04
    10.20.*.*		// ZTEX USB-Module 1.0
    10.30.*.*		// ZTEX USB-XMEGA-Module 1.0
    10.0.1.1		// ZTEX bitminer firmware

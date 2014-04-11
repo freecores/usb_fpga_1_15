@@ -1,6 +1,6 @@
 /*!
    ZTEX Firmware Kit for EZ-USB FX2 Microcontrollers
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -52,7 +52,7 @@
 #error[SPI_BIT_CLK not defined]
 #endif
 
-#ifndef[SPI_DOPORT]
+#ifndef[SPI_OPORT]
 #define[SPI_OPORT][SPI_PORT]
 #endif
 
@@ -393,6 +393,8 @@ BYTE flash_read_init(WORD s) {
 	flash_ec = FLASH_EC_PENDING;
 	return FLASH_EC_PENDING;		// we interrupted a pending Flash operation
     }  
+    OESPI_OPORT &= ~bmBITSPI_BIT_DO;
+    OESPI_PORT |= bmBITSPI_BIT_CS | bmBITSPI_BIT_DI | bmBITSPI_BIT_CLK;
     if ( spi_wait() ) {
 	return flash_ec;
     }
@@ -516,6 +518,8 @@ BYTE flash_write_init(WORD s) {
 	flash_ec = FLASH_EC_PENDING;
 	return FLASH_EC_PENDING;		// we interrupted a pending Flash operation
     }  
+    OESPI_OPORT &= ~bmBITSPI_BIT_DO;
+    OESPI_PORT |= bmBITSPI_BIT_CS | bmBITSPI_BIT_DI | bmBITSPI_BIT_CLK;
     if ( spi_wait() ) {
 	return flash_ec;
     }

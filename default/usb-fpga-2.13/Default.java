@@ -1,6 +1,6 @@
 /*!
-   flashdemo -- demo for Flash memory access from firmware and host software for ZTEX USB-FPGA Module 1.15
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   Default firmware and loader for ZTEX USB-FPGA Modules 2.13
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -153,22 +153,22 @@ class Default {
     		if ( variant == 1 ) {
 		    config.setName("ZTEX USB-FPGA Module", 2, 13, "a");
 		    config.setFpga("XC7A35T", "CSG324", "1C");
-		    config.setRam(256,"DDR2-800 SDRAM");
+		    config.setRam(256,"DDR3-800 SDRAM");
 		    config.setMaxBitstreamSize(610);
 		} else if ( variant == 2 ) {
 		    config.setName("ZTEX USB-FPGA Module", 2, 13, "b");
 		    config.setFpga("XC7A50T", "CSG324", "1C");
-		    config.setRam(256,"DDR2-800 SDRAM");
+		    config.setRam(256,"DDR3-800 SDRAM");
 		    config.setMaxBitstreamSize(640);
 		} else if ( variant == 3 ) {
 		    config.setName("ZTEX USB-FPGA Module", 2, 13, "c");
 		    config.setFpga("XC7A75T", "CSG324", "2C");
-		    config.setRam(256,"DDR2-800 SDRAM");
+		    config.setRam(256,"DDR3-800 SDRAM");
 		    config.setMaxBitstreamSize(1130);
 		} else {
 		    config.setName("ZTEX USB-FPGA Module", 2, 13, "d");
 		    config.setFpga("XC7A100T", "CSG324", "2C");
-		    config.setRam(256,"DDR2-800 SDRAM");
+		    config.setRam(256,"DDR3-800 SDRAM");
 		    config.setMaxBitstreamSize(1130);
 		}
 

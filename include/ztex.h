@@ -1,6 +1,6 @@
 /*!
    ZTEX Firmware Kit for EZ-USB FX2 Microcontrollers
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,12 @@ __xdata BYTE is_ufm_1_15x;
 #ifeq[PRODUCT_IS][UFM-2_13]
 #define[MAC_EEPROM_ENABLED]
 #endif // PRODUCT_IS=UFM-2_13
+#ifeq[PRODUCT_IS][UFM-2_01]
+#define[MAC_EEPROM_ENABLED]
+#endif // PRODUCT_IS=UFM-2_01
+#ifeq[PRODUCT_IS][UFM-2_04]
+#define[MAC_EEPROM_ENABLED]
+#endif // PRODUCT_IS=UFM-2_04
 #endif // EEPROM_MAC_DISABLED
 
 #include[ztex-eeprom.h]
@@ -68,7 +74,14 @@ __xdata BYTE is_ufm_1_15x;
    ********************************************************************* */
 #ifeq[FLASH_ENABLED][1]
 
-#ifeq[PRODUCT_IS][UFM-1_1]
+
+#ifeq[FLASH_OVERRIDE][1]
+#include[ztex-flash1.h]
+
+#elifeq[FLASH_OVERRIDE][2]
+#include[ztex-flash2.h]
+
+#elifeq[PRODUCT_IS][UFM-1_1]
 #define[MMC_PORT][E]
 #define[MMC_BIT_CS][7]
 #define[MMC_BIT_DI][6]
@@ -142,6 +155,24 @@ __xdata BYTE is_ufm_1_15x;
 #define[SPI_BIT_DI][7]
 #include[ztex-flash2.h]
 
+#elifeq[PRODUCT_IS][UFM-2_01]
+#define[SPI_PORT][A]
+#define[SPI_OPORT][C]
+#define[SPI_BIT_DO][0]
+#define[SPI_BIT_CS][3]
+#define[SPI_BIT_CLK][0]
+#define[SPI_BIT_DI][1]
+#include[ztex-flash2.h]
+
+#elifeq[PRODUCT_IS][UFM-2_04]
+#define[SPI_PORT][A]
+#define[SPI_OPORT][C]
+#define[SPI_BIT_DO][0]
+#define[SPI_BIT_CS][3]
+#define[SPI_BIT_CLK][0]
+#define[SPI_BIT_DI][1]
+#include[ztex-flash2.h]
+
 #else
 #warning[Flash memory access is not supported by this product]
 #define[FLASH_ENABLED][0]
@@ -169,6 +200,10 @@ __xdata BYTE is_ufm_1_15x;
 #include[ztex-fpga6.h]
 #elifeq[PRODUCT_IS][UFM-2_13]
 #include[ztex-fpga6.h]
+#elifeq[PRODUCT_IS][UFM-2_01]
+#include[ztex-fpga7.h]
+#elifeq[PRODUCT_IS][UFM-2_04]
+#include[ztex-fpga7.h]
 #endif
 
 
@@ -346,6 +381,10 @@ void init_USB ()
     init_fpga();
 #elifeq[PRODUCT_IS][UFM-2_13]
     init_fpga();
+#elifeq[PRODUCT_IS][UFM-2_01]
+    init_fpga();
+#elifeq[PRODUCT_IS][UFM-2_04]
+    init_fpga();
 #endif
 
     INIT_CMDS;    
@@ -400,6 +439,10 @@ void init_USB ()
     
 #ifeq[FLASH_ENABLED][1]
     flash_init();
+    if ( !flash_enabled ) {
+        wait(250);
+	flash_init();
+    }
 #endif
 #ifeq[DEBUG_ENABLED][1]
     debug_init();

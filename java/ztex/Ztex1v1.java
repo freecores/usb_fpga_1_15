@@ -1,6 +1,6 @@
 /*!
-   Java host software API of ZTEX EZ-USB FX2 SDK
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   Java host software API of ZTEX SDK
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -875,6 +875,22 @@ public class Ztex1v1 extends Ztex1 {
 	return 0;
     }
 
+// ******* detectBitstreamStart ************************************************
+    private int detectBitstreamStart ( byte[] buf ) {
+	int l=0;
+	for ( int i=0; i<buf.length-3; i++ ) {
+	    if ( (l>=4) && ((buf[i+1] & 255)==0x99) && ((buf[i+3] & 255)==0x66) ) {
+		if ( ((buf[i] & 255)==0xaa) && ((buf[i+2] & 255)==0x55) )
+		    return i-l;
+		if ( ((buf[i] & 255)==0x55) && ((buf[i+2] & 255)==0xaa) )
+		    return i-l;
+	    }
+	    l = buf[i]==-1 ? l+1 : 0;
+	} 
+	System.err.println("Warning: Unable to determine start of raw bitstream");
+	return 0;
+    }
+    
 // ******* swapBits ************************************************************
     private void swapBits ( byte[][] buf, int size ) {
 	int j=0, k=0;
@@ -1611,6 +1627,7 @@ public class Ztex1v1 extends Ztex1 {
 	return flashEnabled == 1;
     }
 
+
 // ******* flashUploadBitstream ************************************************
 /* 
     Returns configuration time in ms.
@@ -1676,7 +1693,7 @@ public class Ztex1v1 extends Ztex1 {
         byte[][] buffer = new byte[32768][];
 	byte[] buf1 = new byte[flashSectorSize()];
 
-	int i,j,k;
+	int i,j,k,l;
 	try {
 	    j = bufferSize;
 	    for ( i=0; i<buffer.length && j==bufferSize; i++ ) {
@@ -1687,6 +1704,13 @@ public class Ztex1v1 extends Ztex1 {
 		    if ( k < 0 ) 
 		        k = 0;
 		    j += k;
+		    
+		    // remove header because S6 FPGA's does not support bitstream start word detection
+		    if ( i==0 && j==bufferSize && (l=detectBitstreamStart(buffer[0]))>0 ) {
+			for (int m=0; m<bufferSize-l; m++ )
+			    buffer[0][m]=buffer[0][m+l];
+			j-=l;
+		    }
 		}
 		while ( j<bufferSize && k>0 );
 	    }

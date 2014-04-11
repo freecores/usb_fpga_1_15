@@ -1,6 +1,6 @@
 /*!
    ZTEX Firmware Kit for EZ-USB FX2 Microcontrollers
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -435,6 +435,32 @@ EP_POLL(8,1);
 #define[FWVER][$4]
 #define[PRODUCT_IS][UFM-2_13]
 #define[PRODUCT_STRING]["USB-FPGA Module 2.13"]
+#define[NUMBER_OF_FPGAS][1]]
+
+/* 
+   Identify as ZTEX USB FPGA Module 2.01
+   Usage: IDENTITY_UFM_2_13(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
+*/
+#define[IDENTITY_UFM_2_01(][.$1.$2.$3,$4);][#define[PRODUCT_ID_0][$0]
+#define[PRODUCT_ID_1][$1]
+#define[PRODUCT_ID_2][$2]
+#define[PRODUCT_ID_3][$3]
+#define[FWVER][$4]
+#define[PRODUCT_IS][UFM-2_01]
+#define[PRODUCT_STRING]["USB-FPGA Module 2.01"]
+#define[NUMBER_OF_FPGAS][1]]
+
+/* 
+   Identify as ZTEX USB FPGA Module 2.04
+   Usage: IDENTITY_UFM_2_13(<PRODUCT_ID_0>.<PRODUCT_ID_1><PRODUCT_ID_2>.<PRODUCT_ID_3>,<FW_VERSION>);
+*/
+#define[IDENTITY_UFM_2_04(][.$1.$2.$3,$4);][#define[PRODUCT_ID_0][$0]
+#define[PRODUCT_ID_1][$1]
+#define[PRODUCT_ID_2][$2]
+#define[PRODUCT_ID_3][$3]
+#define[FWVER][$4]
+#define[PRODUCT_IS][UFM-2_04]
+#define[PRODUCT_STRING]["USB-FPGA Module 2.04"]
 #define[NUMBER_OF_FPGAS][1]]
 
 /* 

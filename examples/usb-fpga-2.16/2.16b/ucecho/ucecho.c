@@ -1,6 +1,6 @@
 /*!
-   ucecho -- uppercase conversion example for ZTEX USB-FPGA Module 2.16
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   ucecho -- uppercase conversion and bitstream encryption example for ZTEX USB-FPGA Module 2.16b
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 EP_CONFIG(2,0,BULK,IN,512,2);	 
 EP_CONFIG(4,0,BULK,OUT,512,2);	 
 
-// select ZTEX USB FPGA Module 1.16 as target (required for FPGA configuration)
+// select ZTEX USB FPGA Module 2.16 as target (required for FPGA configuration)
 IDENTITY_UFM_2_16(10.16.0.0,0);	 
 
 // this product string is also used for identification by the host software

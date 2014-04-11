@@ -1,6 +1,6 @@
 /*!
-   flashdemo -- demo for Flash memory access from firmware and host software for ZTEX USB-FPGA Module 1.15
-   Copyright (C) 2009-2011 ZTEX GmbH.
+   Default firmware and loader for ZTEX USB-FPGA Modules 2.16
+   Copyright (C) 2009-2014 ZTEX GmbH.
    http://www.ztex.de
 
    This program is free software; you can redistribute it and/or modify
@@ -145,7 +145,7 @@ class Default {
     		if ( variant == 1 ) {
 		    config.setName("ZTEX USB-FPGA Module", 2, 16, "a");
 		    config.setFpga("XC7A100T", "FBG484", "2C");
-		    config.setMaxBitstreamSize(1130);
+		    config.setMaxBitstreamSize(860);
 		}
 		else {
 		    config.setName("ZTEX USB-FPGA Module", 2, 16, "b");
